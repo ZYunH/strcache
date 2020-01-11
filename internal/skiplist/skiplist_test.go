@@ -8,13 +8,11 @@ import (
 func printSkipList(l *SkipList) {
 	for i := l.level - 1; i >= 0; i-- {
 		print(i, " ")
-		hdr := l.header.levels[i]
-		print("[hdr span:", hdr.span, "] -> ")
-		x := hdr.next
+		x := l.header.levels[i]
 
 		for x != nil {
-			print("[val:", x.Val, " span:", x.levels[i].span, " score:", x.Score, "] -> ")
-			x = x.levels[i].next
+			print("[val:", x.Val, " score:", x.Score, "] -> ")
+			x = x.levels[i]
 		}
 		print("nil")
 		print("\r\n")
