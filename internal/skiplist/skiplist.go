@@ -3,8 +3,6 @@ package skiplist
 import (
 	"math/rand"
 	"time"
-
-	"github.com/ZYunH/rng"
 )
 
 const (
@@ -209,79 +207,6 @@ func (s *SkipList) Update(score int64, val string, lastAccess int64, newscore in
 	}
 	s.delete(n, update)
 	return s.Insert(newscore, n.Key, n.Val)
-}
-
-func (s *SkipList) rng() *rng.Int64 {
-	if s.length == 0 {
-		return rng.NewInt64(0, 0, true, true)
-	}
-	return rng.NewInt64(s.Head().Score, s.Tail().Score, false, false)
-}
-
-func (s *SkipList) FirstInRange(r *rng.Int64) *Node {
-	if s.length == 0 {
-		return nil
-	}
-
-	sr := s.rng()
-	sr = rng.Int64Inter(r, sr)
-	if sr.IsEmpty() {
-		return nil
-	}
-
-	n := s.header
-	for i := s.level - 1; i >= 0; i-- {
-		for n.levels[i] != nil &&
-			(n.levels[i].Score < sr.Start() || !sr.In(n.levels[i].Score)) {
-			n = n.levels[i]
-		}
-	}
-
-	return n.levels[0]
-}
-
-func (s *SkipList) LastInRange(r *rng.Int64) *Node {
-	if s.length == 0 {
-		return nil
-	}
-
-	sr := s.rng()
-	sr = rng.Int64Inter(r, sr)
-	if sr.IsEmpty() {
-		return nil
-	}
-
-	n := s.header
-	for i := s.level - 1; i >= 0; i-- {
-		for n.levels[i] != nil &&
-			(n.levels[i].Score < sr.Start() || sr.In(n.levels[i].Score)) {
-			n = n.levels[i]
-		}
-	}
-
-	return n
-}
-
-func (s *SkipList) DeleteByRange(r *rng.Int64) (removed int) {
-	update := make([]*Node, s.maxLevel)
-
-	n := s.header
-	for i := s.level - 1; i >= 0; i-- {
-		for n.levels[i] != nil &&
-			(n.levels[i].Score < r.Start() || !r.In(n.levels[i].Score)) {
-			n = n.levels[i]
-		}
-		update[i] = n
-	}
-
-	n = n.levels[0]
-	for n != nil && r.In(n.Score) {
-		removed += 1
-		next := n.levels[0]
-		s.delete(n, update)
-		n = next
-	}
-	return removed
 }
 
 // For debug only.
