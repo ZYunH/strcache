@@ -41,7 +41,7 @@ func New(maxlevel int, p float64, randseed int64) *SkipList {
 	s.header = newNode(s.maxLevel, 0, "", "", 0)
 
 	for j := 0; j < s.maxLevel; j++ {
-		s.header.levels[j] = nil
+		s.header.next[j] = nil
 	}
 
 	s.header.pre = nil
@@ -61,7 +61,7 @@ func (s *SkipList) Head() *Node {
 	if s.length == 0 {
 		return nil
 	}
-	return s.header.levels[0]
+	return s.header.next[0]
 }
 
 func (s *SkipList) Tail() *Node { return s.tail }
@@ -86,10 +86,10 @@ func (s *SkipList) Insert(score int64, key, val string) *Node {
 	// Search the insert location, also calculates `update` and `rank`.
 	// The search process is begin from the highest level's header.
 	for i, n := s.level-1, s.header; i >= 0; i-- {
-		for n.levels[i] != nil &&
-			(n.levels[i].Score < score ||
-				(n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess)) {
-			n = n.levels[i]
+		for n.next[i] != nil &&
+			(n.next[i].Score < score ||
+				(n.next[i].Score == score && n.next[i].LastAccess < lastAccess)) {
+			n = n.next[i]
 		}
 		update[i] = n
 	}
@@ -113,8 +113,8 @@ func (s *SkipList) Insert(score int64, key, val string) *Node {
 	// But the level[0] is actually a doubled link list.
 	n := newNode(level, score, key, val, lastAccess)
 	for i := 0; i < level; i++ {
-		n.levels[i] = update[i].levels[i]
-		update[i].levels[i] = n
+		n.next[i] = update[i].next[i]
+		update[i].next[i] = n
 	}
 
 	// Update new node's pre.
@@ -125,8 +125,8 @@ func (s *SkipList) Insert(score int64, key, val string) *Node {
 	// Update new node's next's pre, Because the levels[0] is
 	// doubled link list. But if new node's next is NIL, we
 	// need to change s.tail to the new node.
-	if n.levels[0] != nil {
-		n.levels[0].pre = n
+	if n.next[0] != nil {
+		n.next[0].pre = n
 	} else {
 		s.tail = n
 	}
@@ -140,15 +140,15 @@ func (s *SkipList) Delete(score int64, key string, lastAccess int64) bool {
 	update := make([]*Node, s.maxLevel)
 	n := s.header
 	for i := s.level - 1; i >= 0; i-- {
-		for n.levels[i] != nil &&
-			(n.levels[i].Score < score ||
-				(n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess)) {
-			n = n.levels[i]
+		for n.next[i] != nil &&
+			(n.next[i].Score < score ||
+				(n.next[i].Score == score && n.next[i].LastAccess < lastAccess)) {
+			n = n.next[i]
 		}
 		update[i] = n
 	}
 
-	n = n.levels[0]
+	n = n.next[0]
 	if n != nil && n.Score == score && n.Key == key {
 		s.delete(n, update)
 		return true
@@ -159,20 +159,20 @@ func (s *SkipList) Delete(score int64, key string, lastAccess int64) bool {
 func (s *SkipList) delete(n *Node, update []*Node) {
 	// Delete node and update span for all levels.
 	for i := 0; i < s.level; i++ {
-		if update[i].levels[i] == n {
-			update[i].levels[i] = n.levels[i]
+		if update[i].next[i] == n {
+			update[i].next[i] = n.next[i]
 		}
 	}
 
 	// Update n.pre if possible.
-	if n.levels[0] != nil {
-		n.levels[0].pre = n.pre
+	if n.next[0] != nil {
+		n.next[0].pre = n.pre
 	} else {
 		s.tail = n.pre
 	}
 
 	// Update skiplist.level if some levels only includes header.
-	for s.level > 1 && s.header.levels[s.level-1] == nil {
+	for s.level > 1 && s.header.next[s.level-1] == nil {
 		s.level--
 	}
 	s.length--
@@ -185,18 +185,18 @@ func (s *SkipList) Update(score int64, key string, lastAccess int64, newscore in
 	update := make([]*Node, s.maxLevel)
 	n := s.header
 	for i := s.level - 1; i >= 0; i-- {
-		for n.levels[i] != nil &&
-			(n.levels[i].Score < score ||
-				(n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess)) {
-			n = n.levels[i]
+		for n.next[i] != nil &&
+			(n.next[i].Score < score ||
+				(n.next[i].Score == score && n.next[i].LastAccess < lastAccess)) {
+			n = n.next[i]
 		}
 		update[i] = n
 	}
 
-	n = n.levels[0]
+	n = n.next[0]
 
 	if (n.pre == nil || n.pre.Score < newscore) &&
-		(n.levels[0] == nil || n.levels[0].Score > newscore) {
+		(n.next[0] == nil || n.next[0].Score > newscore) {
 		n.Score = newscore
 		n.LastAccess = uts.Now()
 		return n
@@ -209,11 +209,11 @@ func (s *SkipList) Update(score int64, key string, lastAccess int64, newscore in
 func (s *SkipList) Print() {
 	for i := s.level - 1; i >= 0; i-- {
 		print(i, " ")
-		x := s.header.levels[i]
+		x := s.header.next[i]
 
 		for x != nil {
 			print("[val:", x.Val, " key:", x.Key, " score:", x.Score, " lastAccess:", x.LastAccess, "] -> ")
-			x = x.levels[i]
+			x = x.next[i]
 		}
 		print("nil")
 		print("\r\n")
@@ -227,7 +227,7 @@ type Node struct {
 	Score      int64
 	LastAccess int64
 	pre        *Node
-	levels     []*Node
+	next      []*Node
 }
 
 func newNode(level int, score int64, key, val string, lastAccess int64) *Node {
@@ -237,8 +237,8 @@ func newNode(level int, score int64, key, val string, lastAccess int64) *Node {
 		Score:      score,
 		LastAccess: lastAccess,
 		pre:        nil,
-		levels:     make([]*Node, level),
+		next:      make([]*Node, level),
 	}
 }
 
-func (n *Node) Next() *Node { return n.levels[0] }
+func (n *Node) Next() *Node { return n.next[0] }
