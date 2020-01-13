@@ -1,6 +1,7 @@
 package strcache
 
 import (
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -144,6 +145,13 @@ func TestCache_All(t *testing.T) {
 	checkCache(t, c, 6, 3)
 	checkCacheSkl("Test Get change the accessTime and score", t, c, "2", "3", "1")
 
+	// Test values.
+	for i := 1; i <= 3; i++ {
+		if v, _ := c.Get(strconv.Itoa(i)); v != str(i) {
+			t.Fatalf("error value: %v expected %v got %v", i, str(i), v)
+		}
+	}
+
 	// Test ByteSize.
 	c = New(10 * KB)
 	if c.maxsize != 10*1024 {
@@ -152,43 +160,58 @@ func TestCache_All(t *testing.T) {
 	c.Set("3kb", str(3*1024))
 	checkCache(t, c, 3*1024, 1)
 	checkCacheSkl("Test ByteSize", t, c, "3kb")
+
+	// Test value.
+	c = New(1000)
+	for i := 0; i < 1000; i++ {
+		c.Set(strconv.Itoa(i), strconv.Itoa(i))
+	}
 }
 
 func BenchmarkCache_Set(b *testing.B) {
 	c := New(1000)
+	x := str(10)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c.Set(strconv.Itoa(i), "1111111111")
-	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			c.Set(strconv.Itoa(rand.Intn(1000)), x)
+		}
+	})
 }
 
 func BenchmarkCache_Get(b *testing.B) {
 	c := New(1000)
-	for i := 0; i < 100; i++ {
-		c.Set(strconv.Itoa(i), "1111111111")
+	for i := 0; i < 1000; i++ {
+		c.Set(strconv.Itoa(i), str(10))
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c.Get(strconv.Itoa(i % 100))
-	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			c.Get(strconv.Itoa(rand.Intn(1000)))
+		}
+	})
 }
 
 func BenchmarkCache_BigMemory_Set(b *testing.B) {
-	c := New(1000 * MB)
-	x := str(int(3 * KB))
+	c := New(1000 * GB)
+	x := str(10)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c.Set(strconv.Itoa(i), x)
-	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			c.Set(strconv.Itoa(rand.Intn(100000)), x)
+		}
+	})
 }
 
 func BenchmarkCache_BigMemory_Get(b *testing.B) {
 	c := New(1000 * GB)
-	for i := 0; i < 10000; i++ {
-		c.Set(strconv.Itoa(i), str(i))
+	for i := 0; i < 100000; i++ {
+		c.Set(strconv.Itoa(i), str(10))
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c.Get(strconv.Itoa(i % 10000))
-	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			c.Get(strconv.Itoa(rand.Intn(100000)))
+		}
+	})
 }

@@ -59,7 +59,7 @@ func (c *Cache) Set(key string, val string) error {
 			return nil
 		}
 		// Delete the key.
-		c.skl.Delete(node.Score, node.Val, node.LastAccess)
+		c.skl.Delete(node.Score, node.Key, node.LastAccess)
 		c.nowsize -= ByteSize(len(node.Val))
 		delete(c.m, key)
 	}
@@ -79,7 +79,7 @@ func (c *Cache) Set(key string, val string) error {
 		}
 		for _, dn := range removeNodes {
 			delete(c.m, dn.Key)
-			c.skl.Delete(dn.Score, dn.Val, dn.LastAccess)
+			c.skl.Delete(dn.Score, dn.Key, dn.LastAccess)
 			c.nowsize -= ByteSize(len(dn.Val))
 		}
 	}
@@ -96,7 +96,8 @@ func (c *Cache) Get(key string) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if n, ok := c.m[key]; ok {
-		return c.skl.Update(n.Score, n.Val, n.LastAccess, n.Score+1).Val, nil
+		c.skl.Update(n.Score, n.Key, n.LastAccess, n.Score+1)
+		return n.Val, nil
 	}
 	return "", ErrKeyNotFound
 }
@@ -107,7 +108,7 @@ func (c *Cache) Del(key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if node, ok := c.m[key]; ok {
-		c.skl.Delete(node.Score, node.Val, node.LastAccess)
+		c.skl.Delete(node.Score, node.Key, node.LastAccess)
 		c.nowsize -= ByteSize(len(node.Val))
 		delete(c.m, key)
 		return nil

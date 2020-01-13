@@ -2,7 +2,6 @@ package skiplist
 
 import (
 	"math/rand"
-	"time"
 )
 
 const (
@@ -10,6 +9,8 @@ const (
 	defaultP        = 0.25
 	defaultRandSeed = 0
 )
+
+var uts = newUniqueTS()
 
 type SkipList struct {
 	header *Node
@@ -80,21 +81,14 @@ func (s *SkipList) randomLevel() int {
 
 func (s *SkipList) Insert(score int64, key, val string) *Node {
 	update := make([]*Node, s.maxLevel)
-	rank := make([]uint, s.maxLevel)
-	lastAccess := time.Now().UnixNano()
+	lastAccess := uts.Now()
 
 	// Search the insert location, also calculates `update` and `rank`.
 	// The search process is begin from the highest level's header.
 	for i, n := s.level-1, s.header; i >= 0; i-- {
-		if i == s.level-1 {
-			rank[i] = 0
-		} else {
-			rank[i] = rank[i+1]
-		}
-
 		for n.levels[i] != nil &&
 			(n.levels[i].Score < score ||
-				n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess) {
+				(n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess)) {
 			n = n.levels[i]
 		}
 		update[i] = n
@@ -137,25 +131,25 @@ func (s *SkipList) Insert(score int64, key, val string) *Node {
 		s.tail = n
 	}
 
-	s.length += 1
+	s.length++
 
 	return n
 }
 
-func (s *SkipList) Delete(score int64, val string, lastAccess int64) bool {
+func (s *SkipList) Delete(score int64, key string, lastAccess int64) bool {
 	update := make([]*Node, s.maxLevel)
 	n := s.header
 	for i := s.level - 1; i >= 0; i-- {
 		for n.levels[i] != nil &&
 			(n.levels[i].Score < score ||
-				n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess) {
+				(n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess)) {
 			n = n.levels[i]
 		}
 		update[i] = n
 	}
 
 	n = n.levels[0]
-	if n != nil && n.Score == score && n.Val == val {
+	if n != nil && n.Score == score && n.Key == key {
 		s.delete(n, update)
 		return true
 	}
@@ -179,30 +173,32 @@ func (s *SkipList) delete(n *Node, update []*Node) {
 
 	// Update skiplist.level if some levels only includes header.
 	for s.level > 1 && s.header.levels[s.level-1] == nil {
-		s.level -= 1
+		s.level--
 	}
-	s.length -= 1
+	s.length--
 }
 
-func (s *SkipList) Update(score int64, val string, lastAccess int64, newscore int64) *Node {
+// We don't need to update it's value here.
+// The lastAccess must be modified to Now().
+// So we update `newscore` and `newLastAccess` in this function.
+func (s *SkipList) Update(score int64, key string, lastAccess int64, newscore int64) *Node {
 	update := make([]*Node, s.maxLevel)
 	n := s.header
 	for i := s.level - 1; i >= 0; i-- {
 		for n.levels[i] != nil &&
 			(n.levels[i].Score < score ||
-				n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess) {
+				(n.levels[i].Score == score && n.levels[i].LastAccess < lastAccess)) {
 			n = n.levels[i]
 		}
 		update[i] = n
 	}
-	// If the node would be still exactly at the same position, after the
-	// score update, we can just update the score without actually removing
-	// and re-inserting the element in the skiplist.
+
 	n = n.levels[0]
+
 	if (n.pre == nil || n.pre.Score < newscore) &&
 		(n.levels[0] == nil || n.levels[0].Score > newscore) {
 		n.Score = newscore
-		n.LastAccess = time.Now().UnixNano()
+		n.LastAccess = uts.Now()
 		return n
 	}
 	s.delete(n, update)
